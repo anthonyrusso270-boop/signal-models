@@ -91,6 +91,35 @@ table.grave td .nb{display:block;color:var(--dim);font-family:var(--mono);font-s
 .method li{margin:3px 0}
 footer{color:var(--dim);font-family:var(--mono);font-size:12px;margin-top:36px;border-top:1px solid var(--line);padding-top:14px}
 
+/* phones */
+@media (max-width:640px){
+  .wrap{padding:18px 14px 40px}
+  header h1{font-size:25px}
+  header .tag{font-size:14px}
+  header .links{flex-wrap:wrap;gap:8px 14px}
+  .hero{gap:14px 22px}
+  .hero .n{font-size:20px}
+  .head .big{font-size:32px}
+  .head .lab{max-width:none}
+  .card{padding:14px 12px 12px}
+  .card h3{font-size:15.5px}
+  table.rows td:first-child{width:70px;font-size:10px}
+  table.grave,table.grave tbody,table.grave tr,table.grave td{display:block;width:auto}
+  table.grave thead{display:none}
+  table.grave tr{border-bottom:1px solid var(--line);padding:10px 0}
+  table.grave td{border:0;padding:2px 0}
+  table.grave td:first-child{width:auto;padding-bottom:4px}
+  table.grave td:nth-child(2){width:auto}
+  table.grave td:nth-child(2)::before{content:"killed by · ";color:var(--acc);font-family:var(--mono);font-size:11px}
+  table.grave td:last-child::before{content:"test · ";color:var(--acc);font-family:var(--mono);font-size:11px}
+  .sheet{inset:6px;padding:14px 12px 24px;border-radius:8px}
+  .sheet h3{font-size:18px}
+  .sheet .x{padding:6px 12px}
+  .method{padding:12px 14px;font-size:13px}
+  h2{margin:26px 0 12px}
+  h2 span{display:block;margin:4px 0 0}
+}
+
 /* sheet (expanded card) */
 .backdrop{position:fixed;inset:0;background:rgba(3,5,8,.72);backdrop-filter:blur(3px);display:none;z-index:20}
 .backdrop.on{display:block}
@@ -219,8 +248,12 @@ function linePanel(svg, cfg, box, opts) {
   if (cfg.ylabel) g += `<text x="${x0 + 4}" y="${y0px + T + 9}" font-size="10" fill="#5c6877" font-family="IBM Plex Mono,monospace">${esc(cfg.ylabel)}</text>`;
   return g;
 }
+/* charts are drawn in a viewBox whose width follows the container, so axis text stays
+   legible on a phone instead of scaling down 2.5x with a fixed 800-unit box */
+function chartW(el) { const w = el.clientWidth || 800; return w < 420 ? 400 : (w < 640 ? 560 : 800); }
+const REGISTRY = [];
 function drawLines(el, cfg, height) {
-  const W = 800, H = height || 300;
+  const W = chartW(el), H = Math.round((height || 300) * (W < 800 ? 1.15 : 1));
   const xs = cfg.x.map(ms); const xmin = xs[0], xmax = xs[xs.length - 1];
   let g = "";
   if (cfg.sub) {
@@ -240,7 +273,7 @@ function drawLines(el, cfg, height) {
 
 /* ---------- scatter (GMM) ---------- */
 function drawScatter(el, cfg, height) {
-  const W = 800, H = height || 300, L = 46, R = 10, T = 8, B = 22, pw = W - L - R, ph = H - T - B;
+  const W = chartW(el), H = Math.round((height || 300) * (W < 800 ? 1.15 : 1)), L = 46, R = 10, T = 8, B = 22, pw = W - L - R, ph = H - T - B;
   const xc = cfg.xclamp || 8;
   const ys = cfg.pts.map(p => p[1]); const ymax = Math.max(...ys) * 1.03, ymin = 0;
   const X = v => L + (Math.max(-xc, Math.min(xc, v)) + xc) / (2 * xc) * pw;
@@ -266,7 +299,12 @@ function drawScatter(el, cfg, height) {
   g += `<text x="${L + pw}" y="${T + ph + 13}" font-size="10" fill="#5c6877" text-anchor="end" font-family="IBM Plex Mono,monospace">${esc(cfg.xlabel)}</text>`;
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${g}</svg><div class="legend">${Object.entries(cfg.colors).map(([k, c]) => `<span><b style="background:${c}"></b>${k}</span>`).join("")}<span>solid = 1σ, dashed = 2σ of each component · every 2nd day plotted</span></div>`;
 }
-function drawChart(el, cfg, height) { if (cfg.type === "scatter") drawScatter(el, cfg, height); else drawLines(el, cfg, height); }
+function drawChart(el, cfg, height) {
+  if (!REGISTRY.some(r => r.el === el)) REGISTRY.push({ el, cfg, height });
+  if (cfg.type === "scatter") drawScatter(el, cfg, height); else drawLines(el, cfg, height);
+}
+let _rt = null;
+window.addEventListener("resize", () => { clearTimeout(_rt); _rt = setTimeout(() => REGISTRY.forEach(r => { if (document.body.contains(r.el)) (r.cfg.type === "scatter" ? drawScatter : drawLines)(r.el, r.cfg, r.height); }), 200); });
 
 /* ---------- tables ---------- */
 function statsTable(rows, cap) {
