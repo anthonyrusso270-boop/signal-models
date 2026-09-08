@@ -2,6 +2,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    paths-ignore: ["live/kalshi/**", ".github/workflows/kalshi.yml"]   # the monitor deploys itself
   workflow_dispatch:
 permissions:
   contents: read
